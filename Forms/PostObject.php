@@ -2,51 +2,57 @@
 
 namespace Pel\Forms;
 
+/**
+ * Class PostObject for validate multi-dimensional forms
+ * 
+ * @author Jiri Pazdernik <jiri@pazdernik.net>
+ */
 class PostObject
 {
 	
+	/**
+	 * POST data
+	 * 
+	 * @var array
+	 */
 	protected $_data;
 	
+	/**
+	 * Contructor
+	 * 
+	 * @param array $data POST data
+	 */
 	public function __construct($data = null)
 	{
 		$this->setData($data);
 	}
 	
+	/**
+	 * Get proper value for element
+	 * 
+	 * @param string $name element name
+	 * @param array $data POST data
+	 * @return mixed
+	 */
 	private function __getValue($name, $data)
 	{
-		//zd($name);
-		//zd($data);
-		if (false === strpos($name, "[")) {
-			return (isset($data[$name])) ? $data[$name] : null;
-		}
+		//zdToFile($name);
+		//zdToFile($data);
 		
-		$bPos = strpos($name, "[");
-		$key = substr($name, 0, $bPos);
-		
-		if (! isset($data[$key])) {
-			return null;
-		}
-		
-		$subName = substr($name, $bPos + 1);
-	
-		$ePos = strpos($subName, "]");
-		if (false === $ePos) {
-			// no close ]
-			return null;
-		}
-		$subName = substr_replace($subName, "", $ePos, 1);
-		
-		if (! empty($subName)) {
-			return $this->__getValue($subName, $data[$key]);
-		}
-		
-		return $data[$key];
+		return \Pel\Common\Data::arrayGetMultiDimByFlat($data, $name);
 	}
 	
+	/**
+	 * Read attribute value
+	 * 
+	 * @param string $name attribute name
+	 * @throws Exception
+	 * @return mixed
+	 */
 	public function readAttribute($name)
 	{
 		if (false !== strpos($name, "[]")) {
-			throw new Exception("Undetermined arrays [] not supported yet", 1);
+			throw new \Phalcon\Forms\Exception("Undetermined arrays [] not supported yet", 1);
 		}
 		
 		if (! is_array($this->_data)) {
@@ -55,15 +61,17 @@ class PostObject
 		if (empty($this->_data)) {
 			return null;
 		} 
-		if (false === strpos($name, "[")) {
-			$r = (isset($this->_data[$name])) ? $this->_data[$name] : null;
-			return $r;
-		}
 		
 		$r = $this->__getValue($name, $this->_data);
 		return $r;
 	}
 	
+	/**
+	 * Set POST data
+	 * 
+	 * @param array $data POST data
+	 * @return void
+	 */
 	public function setData($data)
 	{
 		$this->_data = $data;

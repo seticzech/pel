@@ -1,16 +1,18 @@
 <?php
 /**
  * --------------------------------
-* PEL - Phalcon Extensions Library
-* --------------------------------
-*
-* This code is distributed under New BSD license.
-* License is bundled with this package in file LICENSE.txt.
-*
-* @author Jiri Pazdernik <jiri@pazdernik.net>
-*/
+ * PEL - Phalcon Extensions Library
+ * --------------------------------
+ *
+ * This code is distributed under New BSD license.
+ * License is bundled with this package in file LICENSE.txt.
+ *
+ * @author Jiri Pazdernik <jiri@pazdernik.net>
+ */
 
 namespace Pel\Forms;
+
+use \Pel\Common\Data as CommonData;
 
 /**
  * Class for working with forms
@@ -70,6 +72,12 @@ class Form extends \Phalcon\Forms\Form
 		return $group;
 	}
 	
+	/**
+	 * Add JavaScirpt to the form
+	 * 
+	 * @param string $line
+	 * @return \Pel\Forms\Form
+	 */
 	public function addJS($line)
 	{
 		$this->_javaScript[] = $line;
@@ -87,12 +95,49 @@ class Form extends \Phalcon\Forms\Form
 		parent::bind($data, $entity, $whitelist);
 		
 		foreach ($data as $key => $value) {
+			if (is_array($value)) {
+				$subData = array();
+				foreach ($value as $k => $v) {
+					$subData["{$key}[{$k}]"] = $v;
+				}
+				
+				$this->bind($subData, $entity, $whitelist);
+			}
+			
 			if (! empty($whitelist) && ! isset($whitelist[$key])) {
 				continue;
 			}
 			
 			$this->_setDefault($key, $value);
 		}
+	}
+	
+	/**
+	 * Get form data
+	 * 
+	 * @return mixed
+	 */
+	public function getData()
+	{
+		return $this->_data;
+	}
+	
+	/**
+	 * Get names of all elements in the form
+	 * 
+	 * @return array
+	 */
+	public function getElementNames()
+	{
+		$result = array();
+		
+		if ($this->count() > 0) {
+			foreach ($this as $e) {
+				$result[] = $e->getName();
+			}
+		}
+		
+		return $result;
 	}
 	
 	/**
@@ -129,24 +174,60 @@ class Form extends \Phalcon\Forms\Form
 	/**
 	 * Get all values
 	 * 
-	 * @param array $groups (OPTIONAL) get values only for specified groups
+	 * @param array|string $groups (OPTIONAL) get values only for specified groups
 	 * @return array
 	 */
-	public function getValues($groups = array())
+	public function getValues($groups = array(), $options = array())
 	{
+		$defaults = array(
+			"multiDim" => true,
+			"ommitNulls" => true
+		);
+		$options = array_merge($defaults, $options);
+		
 		$result = array();
 		
 		if (! empty($groups)) {
+			if (! is_array($groups)) {
+				$groups = array($groups);
+			}
 			foreach ($groups as $name) {
-				$result = array_merge($result, $this->getGroup($name)->getValues());
+				$group = $this->getGroup($name);
+				if (null != $group) {
+					$values = $group->getValues($options);
+					if (! empty($values)) {
+						$result = array_merge_recursive($result, $values);
+					}
+				}
 			}
 		} else {
 			foreach ($this as $element) {
-				$result[$element->getName()] = $element->getValue();
+				$key = $element->getName();
+				$value = $element->getValue();
+				
+				if ((null === $value) && (boolean) $options["ommitNulls"]) {
+					continue;
+				}
+				
+				if ((boolean) $options["multiDim"]) {
+					CommonData::arraySetMultiDimByFlat($result, $key, $value);
+				} else {
+					$result[$key] = $value;
+				}
 			}
 		}
 		
 		return $result;
+	}
+	
+	/**
+	 * Get count of form groups
+	 * 
+	 * @return integer
+	 */
+	public function groupsCount()
+	{
+		return count($this->_groups);
 	}
 	
 	/**

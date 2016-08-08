@@ -13,6 +13,8 @@
 
 namespace Pel\Forms;
 
+use \Pel\Common\Data as CommonData;
+
 /**
  * Class for manage groups of form elements
  *
@@ -50,6 +52,13 @@ class Group implements \Countable, \Iterator
 	protected $_name;
 	
 	/**
+	 * Group options
+	 * 
+	 * @var array
+	 */
+	protected $_options;
+	
+	/**
 	 * Internal counter
 	 * 
 	 * @var integer
@@ -81,6 +90,7 @@ class Group implements \Countable, \Iterator
 		$this->_caption = $caption;
 		$this->_form = $form;
 		$this->_name = $name;
+		$this->_options = array();
 		$this->__position = 0;
 		$this->_subGroups = array();
 		
@@ -228,22 +238,98 @@ class Group implements \Countable, \Iterator
 		return $this->_elementNames;
 	}
 	
+	/**
+	 * Get option
+	 * 
+	 * @param string $name option name
+	 * @param mixed $default (OPTIONAL) default value for non-existent option
+	 * @return mixed
+	 */
+	public function getOption($name, $default = null)
+	{
+		return array_key_exists($name, $this->_options) ? $this->_options[$name] : $default;
+	}
+	
+	/**
+	 * Get all options
+	 * 
+	 * @return array
+	 */
+	public function getOptions()
+	{
+		return $this->_options;
+	}
+	
+	/**
+	 * Get specific sub-group by name
+	 * 
+	 * @param string $name
+	 * @return \Pel\Forms\Group
+	 */
 	public function getSubGroup($name)
 	{
 		return isset($this->_subGroups[$name]) ? $this->_subGroups[$name] : null;
 	}
 	
 	/**
-	 * Get values of elements from group
+	 * Get sub-groups
 	 * 
 	 * @return array
 	 */
-	public function getValues()
+	public function getSubGroups()
 	{
+		return $this->_subGroups;
+	}
+	
+	/**
+	 * Get sub-groups names
+	 * 
+	 * @return array
+	 */
+	public function getSubGroupsNames()
+	{
+		return array_keys($this->_subGroups);
+	}
+	
+	/**
+	 * Get values of elements from group and its sub-groups (if any)
+	 * 
+	 * @return array
+	 */
+	public function getValues($options = array())
+	{
+		$defaults = array(
+			"multiDim" => true,
+			"ommitNulls" => true
+		);
+		$options = array_merge($defaults, $options);
+		
 		$result = array();
 		
-		foreach ($this as $element) {
-			$result[$element->getName()] = $element->getValue();
+		foreach ($this->_elementNames as $name) {
+			$element = $this->get($name);
+			$key = $element->getName();
+			$value = $element->getValue();
+			
+			if ((null === $value) && (boolean) $options["ommitNulls"]) {
+				continue;
+			}
+				
+			if ((boolean) $options["multiDim"]) {
+				CommonData::arraySetMultiDimByFlat($result, $key, $value);
+			} else {
+				$result[$key] = $value;
+			}
+		}
+		
+		if (count($this->_subGroups) > 0) {
+			foreach ($this->_subGroups as $subGroup) {
+				$values = $subGroup->getValues($options);
+				
+				if (! empty($values)) {
+					$result = array_merge_recursive($result, $values);
+				}
+			}
 		}
 		
 		return $result;
@@ -282,6 +368,27 @@ class Group implements \Countable, \Iterator
 		}
 		
 		return false;
+	}
+	
+	/**
+	 * Check if sub-group of specific name exists
+	 * 
+	 * @param string $name
+	 * @return boolean
+	 */
+	public function hasSubGroup($name)
+	{
+		return isset($this->_subGroups[$name]);
+	}
+	
+	/**
+	 * Check if exists any sub-groups
+	 * 
+	 * @return boolean
+	 */
+	public function hasSubGroups()
+	{
+		return count($this->_subGroups) > 0;
 	}
 	
 	/**
@@ -370,6 +477,45 @@ class Group implements \Countable, \Iterator
 		$this->_caption = $value;
 		
 		return $this;
+	}
+	
+	/**
+	 * Set option value
+	 * 
+	 * @param string $name option name
+	 * @param mixed $value option value
+	 * @return \Pel\Forms\Group
+	 */
+	public function setOption($name, $value)
+	{
+		if (! is_scalar($name)) {
+			throw new \Pel\Forms\Exception("Option name must have a scalar value");
+		}
+		
+		$this->_options[$name] = $value;
+		return $this;
+	}
+	
+	/**
+	 * Set options 
+	 * 
+	 * @param array $options new options
+	 * @return \Pel\Forms\Group
+	 */
+	public function setOptions(array $options)
+	{
+		$this->_options = $options;
+		return $this;
+	}
+	
+	/**
+	 * Get count of sub-groups
+	 * 
+	 * @return integer
+	 */
+	public function subGroupsCount()
+	{
+		return count($this->_subGroups);
 	}
 	
 	/**
