@@ -46,8 +46,6 @@ class Form extends \Phalcon\Forms\Form
 	{
 		parent::__construct($entity, $userOptions);
 		
-		$this->initialize();
-		
 		$validation = new \Phalcon\Validation();
 		$this->setValidation($validation);
 	}

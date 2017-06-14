@@ -15,11 +15,11 @@ namespace Pel\Forms\Element;
 use \Pel\Tag;
 
 /**
- * Class for submit
+ * Class for button
  *
  * @author Jiri Pazdernik <jiri@pazdernik.net>
  */
-class Submit extends \Phalcon\Forms\Element\Submit
+class Button extends Submit
 {
 	
 	/**
@@ -30,8 +30,7 @@ class Submit extends \Phalcon\Forms\Element\Submit
 	 */
 	public function render($attributes = null)
 	{
-		return Tag::submitButton($this->prepareAttributes($attributes));
+		return Tag::button($this->prepareAttributes($attributes));
 	}
-	
 	
 }

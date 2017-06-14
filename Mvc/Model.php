@@ -11,11 +11,11 @@ class Model extends \Phalcon\Mvc\Model
 {
 	
 	/**
-	 * Last result for bulk insert, create, update, save methods
+	 * Last result for bulk insert, create, update, save, executeRawSql methods
 	 * 
-	 * @var boolen
+	 * @var boolean
 	 */
-	protected $_lastResult = false;
+	protected $_lastResult = null;
 	
 	/**
 	 * Append validate messages from specified model
@@ -40,8 +40,8 @@ class Model extends \Phalcon\Mvc\Model
 	 * Perform bulk insert
 	 * 
 	 * Parameters should be an array:
-	 * - columns: list of target columns for insertion
-	 * - values: set of values to insert
+	 * - columns: list of target columns (could be empty for all columns in table)
+	 * - values: set of values to insert into specified columns
 	 * 
 	 * @param array $parameters
 	 * @throws \Phalcon\Mvc\Model\Exception
@@ -65,6 +65,19 @@ class Model extends \Phalcon\Mvc\Model
 	}
 	
 	/**
+	 * Create new instance and fill last result
+	 * 
+	 * @param mixed $data 
+	 * @param mixed $whiteList 
+	 * @return boolean
+	 */
+	public function create($data = null, $whiteList = null)
+	{
+		$this->_lastResult = parent::create($data, $whiteList);
+		return $this->_lastResult;
+	}
+	
+	/**
 	 * Create a new record
 	 * 
 	 * @param array $data
@@ -82,13 +95,81 @@ class Model extends \Phalcon\Mvc\Model
 	}
 	
 	/**
+	 * Execute prepared raw SQL
+	 * 
+	 * @param string $sql
+	 * @return boolean
+	 */
+	public function executeRawSql($sql)
+	{
+		$db = $this->getWriteConnection();
+		$this->_lastResult = $db->execute($sql);
+		
+		if (false === $this->_lastResult) {
+			foreach ($db->getErrorInfo() as $message) {
+				$this->appendMessage(new \Phalcon\Mvc\Model\Message($message));
+			}
+		}
+		
+		return $this->_lastResult;
+	}
+	
+	/**
 	 * Get model columns
+	 * 
+	 * @param string $alias (OPTIONAL) prepend an alias before columns names
+	 * @param array $addColumns (OPTIONAL) append another columns after model columns
+	 * @return array
+	 */
+	public function getColumns($alias = null, $addColumns = array())
+	{
+		$columns = $this->getModelsMetaData()->getAttributes($this);
+		
+		// rename real columns to the mapped if exists
+		$map = $this->getModelsMetaData()->getColumnMap($this);
+		if (! empty($map)) {
+			foreach ($columns as $key => $val) {
+				if (array_key_exists($val, $map)) {
+					$columns[$key] = $map[$val];
+				}
+			}
+		}
+		
+		if (! empty($alias)) {
+			foreach ($columns as & $val) {
+				$val = $alias . "." . $val;
+			}
+		}
+		
+		if (! empty($addColumns)) {
+			$columns = array_merge($columns, $addColumns);
+		}
+		
+		return $columns;
+	}
+	
+	/**
+	 * Get all columns as list for mapping
+	 * 
+	 * Method returns all columns as array where
+	 * each key equals its value. In table with three
+	 * columns: "id", "date", "name" the method returns
+	 * array containing these values:
+	 * ["id" => "id", "date" => "date", "name" => "name".
+	 * So columns can be renamed easily to the new values.
 	 * 
 	 * @return array
 	 */
-	public function getColumns()
+	public function getAllColumnsForMapping()
 	{
-		return $this->getModelsMetaData()->getAttributes($this);
+		$columns = $this->getModelsMetaData()->getAttributes($this);
+		$result = array();
+		
+		foreach ($columns as $col) {
+			$result[$col] = $col;
+		}
+		
+		return $result;
 	}
 	
 	/**
@@ -133,6 +214,21 @@ class Model extends \Phalcon\Mvc\Model
 	public function getLastResult()
 	{
 		return $this->_lastResult;
+	}
+	
+	public function getMessagesAsString($separator = "\n", $filter = null)
+	{
+		$result = array();
+		
+		if (count($this->getMessages($filter)) > 0) {
+			foreach ($this->getMessages($filter) as $msg) {
+				$result[] = $msg;
+			}
+		}
+		
+		$result = implode($separator, $result);
+		
+		return $result;
 	}
 	
 	/**
